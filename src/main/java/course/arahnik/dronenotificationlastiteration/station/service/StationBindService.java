@@ -29,7 +29,6 @@ public class StationBindService {
     private final UserRepository userRepository;
     private final WareHouseRepository wareHouseRepository;
 
-    @Transactional
     public DroneStationDTO bind(String token, Long userID) {
         var stationUUID = stationTokenService.extractStationUUID(token);
         DroneStation station = droneStationRepository.getDroneStationByUuid(UUID.fromString(stationUUID));
@@ -45,23 +44,21 @@ public class StationBindService {
             .user(user)
             .droneStation(station)
             .build();
-        senderRepository.save(newSender);
+        var s = senderRepository.save(newSender);
         user.setSenderStatus(SenderStatus.APPROVED);
-        user.setSender(newSender);
+        user.setSender(s);
 
-        userRepository.save(user);
+        var u = userRepository.save(user);
 
         WareHouse wareHouse = WareHouse.builder()
-            .owner(user.getSender())
+            .owner(u.getSender())
             .build();
-        wareHouseRepository.save(wareHouse);
+        var w = wareHouseRepository.save(wareHouse);
 
-        user.getSender()
-            .setWareHouse(wareHouse);
+        u.getSender()
+            .setWareHouse(w);
 
-        senderRepository.save(user.getSender());
-
-        userRepository.save(user);
+        senderRepository.save(u.getSender());
 
         return DroneStationDTO.builder()
             .id(station.getId())

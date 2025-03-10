@@ -46,8 +46,7 @@ public class GoodService {
             .weight(goodDTO.getWeight())
             .description(goodDTO.getDescription())
             .sender(user.getSender())
-            .senderDemo(user.getSender()
-                .getShopName())
+            .senderDemo(user.getSender().getShopName())
             .build();
         return goodRepository.save(g);
     }

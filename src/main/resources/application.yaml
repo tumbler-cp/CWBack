@@ -22,3 +22,7 @@ subscription:
     secret: 6a870c22e3485247c611f66cd034e3345ba4ac7294d126a0ae11b8c14b08a69d
   sender:
     secret: 3fa49379b75408f8b874b30f410b07ba9a74e1f01614f54079b2fd9ac7bd3ec3
+
+admin:
+  name: appadmin
+  password: passadmin
