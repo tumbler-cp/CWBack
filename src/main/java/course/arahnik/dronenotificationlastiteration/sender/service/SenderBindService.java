@@ -1,10 +1,11 @@
 package course.arahnik.dronenotificationlastiteration.sender.service;
 
 import course.arahnik.dronenotificationlastiteration.customer.model.Customer;
+import course.arahnik.dronenotificationlastiteration.customer.model.Subscription;
 import course.arahnik.dronenotificationlastiteration.customer.repository.CustomerRepository;
+import course.arahnik.dronenotificationlastiteration.customer.repository.SubscriptionRepository;
 import course.arahnik.dronenotificationlastiteration.exception.NotSenderException;
-import course.arahnik.dronenotificationlastiteration.exception.UserNotVerifiedException;
-import course.arahnik.dronenotificationlastiteration.security.model.enums.Verification;
+import course.arahnik.dronenotificationlastiteration.security.model.User;
 import course.arahnik.dronenotificationlastiteration.security.service.AuthService;
 import course.arahnik.dronenotificationlastiteration.security.service.UserService;
 import course.arahnik.dronenotificationlastiteration.sender.dto.SenderDTO;
@@ -23,32 +24,30 @@ public class SenderBindService {
   private final CustomerRepository customerRepository;
   private final SenderService senderService;
   private final AuthService authService;
+  private final SubscriptionRepository subscriptionRepository;
 
   public SenderDTO bind(String token, Long userId) {
     var senderID = senderTokenService.extractSenderId(token);
     Sender sender = senderRepository.findById(senderID)
             .orElseThrow(
-                    () -> new RuntimeException("Такой отправитель не найден")
+                    () -> new RuntimeException("Sender not found")
             );
+    User customerUser = userService.getUserById(userId);
 
-    var user = userService.getUserById(userId);
-
-    if (user.getVerification()
-            .equals(Verification.UNVERIFIED)) {
-      throw new UserNotVerifiedException("Пользователь должен быть подтвержденным");
-    }
-
-    if (user.getCustomer() == null) {
-      Customer newCustomer = Customer.builder()
-              .user(user)
+    if (customerUser.getCustomer() == null) {
+      Customer newC = Customer.builder()
+              .user(customerUser)
               .build();
-      customerRepository.save(newCustomer);
+      customerRepository.save(newC);
     }
 
-    var customer = user.getCustomer();
-    customer.getFollowing()
-            .add(sender);
-    customerRepository.save(customer);
+    Customer customer = customerUser.getCustomer();
+
+    Subscription subscription = Subscription.builder()
+            .customer(customer)
+            .sender(sender)
+            .build();
+    subscriptionRepository.save(subscription);
     return senderService.dtoFromEntity(sender);
   }
 

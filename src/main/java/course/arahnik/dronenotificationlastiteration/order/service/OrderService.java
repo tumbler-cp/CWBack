@@ -2,14 +2,20 @@ package course.arahnik.dronenotificationlastiteration.order.service;
 
 import course.arahnik.dronenotificationlastiteration.customer.model.Customer;
 import course.arahnik.dronenotificationlastiteration.customer.repository.CustomerRepository;
+import course.arahnik.dronenotificationlastiteration.exception.NotEnoughRightsException;
+import course.arahnik.dronenotificationlastiteration.exception.TooFarException;
+import course.arahnik.dronenotificationlastiteration.exception.TooHeavyException;
+import course.arahnik.dronenotificationlastiteration.geocoder.model.Coordinates;
 import course.arahnik.dronenotificationlastiteration.geocoder.service.GeocoderService;
 import course.arahnik.dronenotificationlastiteration.order.dto.CreateOrderRequest;
 import course.arahnik.dronenotificationlastiteration.order.dto.OrderDTO;
 import course.arahnik.dronenotificationlastiteration.order.model.Order;
 import course.arahnik.dronenotificationlastiteration.order.model.OrderPosition;
 import course.arahnik.dronenotificationlastiteration.order.model.enums.OrderAcceptance;
+import course.arahnik.dronenotificationlastiteration.order.model.enums.OrderStage;
 import course.arahnik.dronenotificationlastiteration.order.repository.OrderPositionRepository;
 import course.arahnik.dronenotificationlastiteration.order.repository.OrderRepository;
+import course.arahnik.dronenotificationlastiteration.order.repository.OrderStatusRepository;
 import course.arahnik.dronenotificationlastiteration.security.service.AuthService;
 import course.arahnik.dronenotificationlastiteration.sender.model.Good;
 import course.arahnik.dronenotificationlastiteration.sender.model.Sender;
@@ -34,14 +40,16 @@ public class OrderService {
   private final GoodRepository goodRepository;
   private final OrderPositionRepository orderPositionRepository;
   private final WareHousePositionRepository wareHousePositionRepository;
-  private final GeocoderService geocoderService;
   private final DroneService droneService;
+  private final OrderStatusRepository orderStatusRepository;
+  private final GeocoderService geocoderService;
 
   public OrderDTO dtoFromEntity(Order order) {
     return OrderDTO.builder()
             .id(order.getId())
             .orderDate(order.getOrderDate())
             .acceptance(order.getAcceptance())
+            .stage(order.getStage())
             .sender(order.getSender()
                     .getShopName())
             .destination(order.getCustomer()
@@ -59,6 +67,18 @@ public class OrderService {
     return ret;
   }
 
+  public void receiveOrder(Order order) {
+    var user = authService.getCurrentUser();
+    if (user.getCustomer() != order.getCustomer()) {
+      throw new NotEnoughRightsException("Это не вы");
+    }
+    var status = orderStatusRepository.findByOrder(order)
+            .orElseThrow(RuntimeException::new);
+    order.setStage(OrderStage.COMPLETED);
+    var o = orderRepository.save(order);
+    dtoFromEntity(o);
+  }
+
   public List<OrderDTO> getCustomerOrders() {
     var user = authService.getCurrentUser();
     List<Order> orders = orderRepository.findAllByCustomer(user.getCustomer());
@@ -73,20 +93,39 @@ public class OrderService {
   public void acceptOrder(Order order) {
     var user = authService.getCurrentUser();
     if (user.getCustomer() != order.getCustomer()) throw new RuntimeException("Это не ваш заказ");
-    if (droneService.assignOrder(order.getSender()
-            .getDroneStation(), order) == null) {
+    try {
+      if (droneService.assignOrder(order.getSender()
+              .getDroneStation(), order) == null) {
+        rejectOrder(order);
+        return;
+      }
+    } catch (TooFarException | TooHeavyException e) {
       rejectOrder(order);
-      return;
+      throw e;
     }
+
+    var station = order.getSender()
+            .getDroneStation();
+    String orderDest = order.getCustomer()
+            .getAddress();
+    String stationAddr = station.getAddress();
+
+    Coordinates customerCoor = geocoderService.forwardGeocode(orderDest);
+    Coordinates stationCoor = geocoderService.forwardGeocode(stationAddr);
+
     order.setAcceptance(OrderAcceptance.ACCEPTED);
+    order.setStage(OrderStage.DELIVERY);
     orderRepository.save(order);
     OrderStatus status = OrderStatus
             .builder()
             .order(order)
             .startTime(LocalDateTime.now())
-            .updateTime(LocalDateTime.now())
+            .estimatedTimeLeft(
+                    geocoderService.calculateDistance(customerCoor.getLatitude(), customerCoor.getLongitude(),
+                            stationCoor.getLatitude(), stationCoor.getLongitude()) / 20
+            )
             .build();
-
+    orderStatusRepository.save(status);
   }
 
   @Transactional
@@ -105,6 +144,7 @@ public class OrderService {
                       wareHousePositionRepository.save(p);
                     }
             );
+    order.setStage(OrderStage.COMPLETED);
     orderRepository.save(order);
   }
 
@@ -122,6 +162,7 @@ public class OrderService {
             .orderDate(LocalDateTime.now())
             .sender(sender)
             .customer(customer)
+            .stage(OrderStage.CREATED)
             .build();
     order = orderRepository.save(order);
     final Order o = order;

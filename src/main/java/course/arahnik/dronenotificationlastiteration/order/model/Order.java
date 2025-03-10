@@ -2,6 +2,7 @@ package course.arahnik.dronenotificationlastiteration.order.model;
 
 import course.arahnik.dronenotificationlastiteration.customer.model.Customer;
 import course.arahnik.dronenotificationlastiteration.order.model.enums.OrderAcceptance;
+import course.arahnik.dronenotificationlastiteration.order.model.enums.OrderStage;
 import course.arahnik.dronenotificationlastiteration.sender.model.Sender;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -10,6 +11,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.Date;
 
 @Entity
 @Data
@@ -28,8 +30,13 @@ public class Order {
   @Enumerated(EnumType.STRING)
   private OrderAcceptance acceptance;
 
+  @Enumerated(EnumType.STRING)
+  private OrderStage stage;
+
   @ManyToOne
   private Sender sender;
+
+  private Date updateTime;
 
   @ManyToOne
   private Customer customer;

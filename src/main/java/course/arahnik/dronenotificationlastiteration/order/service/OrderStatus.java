@@ -27,6 +27,5 @@ public class OrderStatus {
   private Order order;
 
   private LocalDateTime startTime;
-  private LocalDateTime updateTime;
   private Double estimatedTimeLeft;
 }

@@ -1,30 +1,25 @@
 package course.arahnik.dronenotificationlastiteration.customer.model;
 
-import course.arahnik.dronenotificationlastiteration.security.model.User;
 import course.arahnik.dronenotificationlastiteration.sender.model.Sender;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.util.Set;
 
 @Entity
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Customer {
+public class Subscription {
   @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
-  private String address;
+  @ManyToOne
+  private Sender sender;
 
-  @NotNull
-  @MapsId
-  @JoinColumn(unique = true, name = "user_id")
-  @OneToOne(fetch = FetchType.EAGER)
-  private User user;
+  @ManyToOne
+  private Customer customer;
 }

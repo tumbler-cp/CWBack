@@ -6,10 +6,9 @@ import course.arahnik.dronenotificationlastiteration.order.repository.OrderRepos
 import course.arahnik.dronenotificationlastiteration.order.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/order")
@@ -37,5 +36,23 @@ public class OrderController {
             .orElseThrow(() -> new RuntimeException("Order not found")));
     return ResponseEntity.ok()
             .build();
+  }
+
+  @PostMapping("/receive")
+  public ResponseEntity<?> receiveOrder(@RequestBody OrderDTO orderDTO) {
+    orderService.receiveOrder(orderRepository.findById(orderDTO.getId())
+            .orElseThrow(() -> new RuntimeException("Order not found")));
+    return ResponseEntity.ok()
+            .build();
+  }
+
+  @GetMapping("/customer/all")
+  public List<OrderDTO> getOrdersCustomer() {
+    return orderService.getCustomerOrders();
+  }
+
+  @GetMapping("/sender/all")
+  public List<OrderDTO> getOrdersSender() {
+    return orderService.getSenderOrders();
   }
 }
