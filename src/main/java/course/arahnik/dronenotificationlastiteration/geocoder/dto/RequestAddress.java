@@ -8,4 +8,8 @@ public class RequestAddress {
   private String city;
   private String street;
   private String houseNumber;
+
+  public String toString() {
+    return country + " " + city + " " + street + " " + houseNumber;
+  }
 }

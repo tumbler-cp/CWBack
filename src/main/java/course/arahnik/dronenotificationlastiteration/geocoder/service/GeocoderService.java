@@ -7,24 +7,24 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
 public class GeocoderService {
   private static final String NOMINATIM_URL = "https://nominatim.openstreetmap.org/";
+  private static final double EARTH_RADIUS = 6371.0; // Радиус Земли в км
+
   private final RestTemplate restTemplate = new RestTemplate();
   private final CoordinatesRepository coordinatesRepository;
 
-
   public Coordinates forwardGeocode(String address) {
-    if (coordinatesRepository.findByAddress(address).isPresent()) {
-      return coordinatesRepository.findByAddress(address).get();
-    }
-    String url = NOMINATIM_URL + "search?q=" + address + "&format=json&addressdetails=1&limit=1";
+    return coordinatesRepository.findByAddress(address)
+            .orElseGet(() -> fetchAndSaveCoordinates(address));
+  }
+
+  private Coordinates fetchAndSaveCoordinates(String address) {
+    String url = String.format("%ssearch?q=%s&format=json&addressdetails=1&limit=1", NOMINATIM_URL, address);
     ResponseEntity<Object[]> response = restTemplate.getForEntity(url, Object[].class);
     if (response.getBody() != null && response.getBody().length > 0) {
       LinkedHashMap<String, Object> result = (LinkedHashMap<String, Object>) response.getBody()[0];
@@ -32,66 +32,53 @@ public class GeocoderService {
               .toString());
       double lon = Double.parseDouble(result.get("lon")
               .toString());
-      Coordinates coordinates =  Coordinates.builder()
+      Coordinates coordinates = Coordinates.builder()
               .address(address)
               .latitude(lat)
               .longitude(lon)
               .build();
-      coordinates = coordinatesRepository.save(coordinates);
-      return coordinates;
+      return coordinatesRepository.save(coordinates);
     }
     throw new RuntimeException("Некорректный формат адреса");
   }
 
-  public Map<String, Double> reverseGeocode(double lat, double lon) {
-    String url = NOMINATIM_URL + "reverse?lat=" + lat + "&lon=" + lon + "&format=json&addressdetails=1";
+  public Optional<Coordinates> reverseGeocode(double lat, double lon) {
+    String url = String.format("%sreverse?lat=%f&lon=%f&format=json&addressdetails=1", NOMINATIM_URL, lat, lon);
     LinkedHashMap<String, Object> response = restTemplate.getForObject(url, LinkedHashMap.class);
     if (response != null && response.containsKey("lat") && response.containsKey("lon")) {
       double parsedLat = Double.parseDouble(response.get("lat")
               .toString());
       double parsedLon = Double.parseDouble(response.get("lon")
               .toString());
-      Map<String, Double> coordinates = new HashMap<>();
-      coordinates.put("latitude", parsedLat);
-      coordinates.put("longitude", parsedLon);
-      return coordinates;
+      return Optional.of(
+              Coordinates.builder()
+                      .latitude(parsedLat)
+                      .longitude(parsedLon)
+                      .build()
+      );
     }
-    return Collections.emptyMap();
+    return Optional.empty();
   }
 
-  public String calculateDistance(double lat1, double lon1, double lat2, double lon2) {
-    final double R = 6371;
-    double dLat = Math.toRadians(lat2 - lat1);
-    double dLon = Math.toRadians(lon2 - lon1);
-    double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
-            + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
-            * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    double distanceKm = R * c;
-    return "distance_km: " + distanceKm + ", distance_m: " + (distanceKm * 1000);
+  public double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+    return haversineFormula(lat1, lon1, lat2, lon2);
   }
 
-  public String estimateTime(double lat1, double lon1, double lat2, double lon2, double speedKmh) {
+  public double estimateTime(double lat1, double lon1, double lat2, double lon2, double speedKmh) {
     if (speedKmh <= 0) {
-      return "Speed must be greater than 0";
+      throw new IllegalArgumentException("Speed must be greater than 0");
     }
-    final double R = 6371; // Earth radius in km
-    double dLat = Math.toRadians(lat2 - lat1);
-    double dLon = Math.toRadians(lon2 - lon1);
-    double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
-            + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
-            * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    double distanceKm = R * c;
-    double timeHours = distanceKm / speedKmh;
-    double timeMinutes = timeHours * 60;
-    return "estimated_time_hours: " + timeHours + ", estimated_time_minutes: " + timeMinutes;
+    return haversineFormula(lat1, lon1, lat2, lon2) / speedKmh;
   }
 
-  public String interpolate(double start, double end, double fraction) {
-    if (fraction < 0 || fraction > 1) {
-      return "Fraction must be between 0 and 1";
-    }
-    return "value: " + (start + (end - start) * fraction);
+  private double haversineFormula(double lat1, double lon1, double lat2, double lon2) {
+    double dLat = Math.toRadians(lat2 - lat1);
+    double dLon = Math.toRadians(lon2 - lon1);
+    double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+                    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return EARTH_RADIUS * c;
   }
+
 }

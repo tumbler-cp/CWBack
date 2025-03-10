@@ -2,6 +2,7 @@ package course.arahnik.dronenotificationlastiteration.order.service;
 
 import course.arahnik.dronenotificationlastiteration.customer.model.Customer;
 import course.arahnik.dronenotificationlastiteration.customer.repository.CustomerRepository;
+import course.arahnik.dronenotificationlastiteration.geocoder.service.GeocoderService;
 import course.arahnik.dronenotificationlastiteration.order.dto.CreateOrderRequest;
 import course.arahnik.dronenotificationlastiteration.order.dto.OrderDTO;
 import course.arahnik.dronenotificationlastiteration.order.model.Order;
@@ -15,6 +16,7 @@ import course.arahnik.dronenotificationlastiteration.sender.model.Sender;
 import course.arahnik.dronenotificationlastiteration.sender.model.WareHousePosition;
 import course.arahnik.dronenotificationlastiteration.sender.repository.GoodRepository;
 import course.arahnik.dronenotificationlastiteration.sender.repository.WareHousePositionRepository;
+import course.arahnik.dronenotificationlastiteration.station.service.DroneService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +34,8 @@ public class OrderService {
   private final GoodRepository goodRepository;
   private final OrderPositionRepository orderPositionRepository;
   private final WareHousePositionRepository wareHousePositionRepository;
+  private final GeocoderService geocoderService;
+  private final DroneService droneService;
 
   public OrderDTO dtoFromEntity(Order order) {
     return OrderDTO.builder()
@@ -69,6 +73,11 @@ public class OrderService {
   public void acceptOrder(Order order) {
     var user = authService.getCurrentUser();
     if (user.getCustomer() != order.getCustomer()) throw new RuntimeException("Это не ваш заказ");
+    if (droneService.assignOrder(order.getSender()
+            .getDroneStation(), order) == null) {
+      rejectOrder(order);
+      return;
+    }
     order.setAcceptance(OrderAcceptance.ACCEPTED);
     orderRepository.save(order);
     OrderStatus status = OrderStatus
