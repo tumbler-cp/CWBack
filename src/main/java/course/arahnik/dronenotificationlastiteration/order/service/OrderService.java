@@ -6,14 +6,15 @@ import course.arahnik.dronenotificationlastiteration.order.dto.CreateOrderReques
 import course.arahnik.dronenotificationlastiteration.order.dto.OrderDTO;
 import course.arahnik.dronenotificationlastiteration.order.model.Order;
 import course.arahnik.dronenotificationlastiteration.order.model.OrderPosition;
+import course.arahnik.dronenotificationlastiteration.order.model.enums.OrderAcceptance;
 import course.arahnik.dronenotificationlastiteration.order.repository.OrderPositionRepository;
 import course.arahnik.dronenotificationlastiteration.order.repository.OrderRepository;
 import course.arahnik.dronenotificationlastiteration.security.service.AuthService;
-import course.arahnik.dronenotificationlastiteration.security.service.UserService;
 import course.arahnik.dronenotificationlastiteration.sender.model.Good;
 import course.arahnik.dronenotificationlastiteration.sender.model.Sender;
+import course.arahnik.dronenotificationlastiteration.sender.model.WareHousePosition;
 import course.arahnik.dronenotificationlastiteration.sender.repository.GoodRepository;
-import course.arahnik.dronenotificationlastiteration.sender.repository.SenderRepository;
+import course.arahnik.dronenotificationlastiteration.sender.repository.WareHousePositionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,18 +22,16 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class OrderService {
-  private final UserService userService;
   private final AuthService authService;
   private final OrderRepository orderRepository;
-  private final SenderRepository senderRepository;
   private final CustomerRepository customerRepository;
   private final GoodRepository goodRepository;
   private final OrderPositionRepository orderPositionRepository;
+  private final WareHousePositionRepository wareHousePositionRepository;
 
   public OrderDTO dtoFromEntity(Order order) {
     return OrderDTO.builder()
@@ -67,6 +66,40 @@ public class OrderService {
   }
 
   @Transactional
+  public void acceptOrder(Order order) {
+    var user = authService.getCurrentUser();
+    if (user.getCustomer() != order.getCustomer()) throw new RuntimeException("Это не ваш заказ");
+    order.setAcceptance(OrderAcceptance.ACCEPTED);
+    orderRepository.save(order);
+    OrderStatus status = OrderStatus
+            .builder()
+            .order(order)
+            .startTime(LocalDateTime.now())
+            .updateTime(LocalDateTime.now())
+            .build();
+
+  }
+
+  @Transactional
+  public void rejectOrder(Order order) {
+    var user = authService.getCurrentUser();
+    if (user.getCustomer() != order.getCustomer()) throw new RuntimeException("Это не ваш заказ");
+    order.setAcceptance(OrderAcceptance.REJECTED);
+    var ignored = orderPositionRepository.findAllByOrder(order)
+            .stream()
+            .peek(
+                    position -> {
+                      Good good = position.getGood();
+                      int quantity = position.getQuantity();
+                      WareHousePosition p = wareHousePositionRepository.findByGood(good);
+                      p.setQuantity(p.getQuantity() + quantity);
+                      wareHousePositionRepository.save(p);
+                    }
+            );
+    orderRepository.save(order);
+  }
+
+  @Transactional
   public OrderDTO createOrder(CreateOrderRequest request) {
     Customer customer = customerRepository.findById(request.getCustomerId())
             .orElseThrow(() -> new RuntimeException("Такого получателя нет"));
@@ -88,6 +121,9 @@ public class OrderService {
             .map(positionDTO -> {
               Good good = goodRepository.findById(positionDTO.getGoodID())
                       .orElseThrow(() -> new RuntimeException("Такой товар не найден"));
+              WareHousePosition position = wareHousePositionRepository.findByGood(good);
+              position.setQuantity(position.getQuantity() - positionDTO.getQuantity());
+              wareHousePositionRepository.save(position);
               return OrderPosition.builder()
                       .order(o)
                       .good(good)
