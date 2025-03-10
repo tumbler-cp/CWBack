@@ -1,5 +1,6 @@
 package course.arahnik.dronenotificationlastiteration.security.model;
 
+import course.arahnik.dronenotificationlastiteration.customer.model.Customer;
 import course.arahnik.dronenotificationlastiteration.security.model.enums.Role;
 import course.arahnik.dronenotificationlastiteration.security.model.enums.SenderStatus;
 import course.arahnik.dronenotificationlastiteration.security.model.enums.Verification;
@@ -53,8 +54,11 @@ public class User implements UserDetails {
         return List.of(new SimpleGrantedAuthority(role.name()));
     }
 
-    @OneToOne(mappedBy = "user", orphanRemoval = true)
+    @OneToOne(mappedBy = "user", orphanRemoval = true, cascade = CascadeType.ALL)
     private Sender sender;
+
+    @OneToOne(mappedBy = "user", orphanRemoval = true, cascade = CascadeType.ALL)
+    private Customer customer;
 
     @Builder.Default
     @Enumerated(EnumType.STRING)

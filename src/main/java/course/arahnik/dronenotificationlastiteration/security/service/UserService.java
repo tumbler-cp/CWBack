@@ -18,54 +18,55 @@ import java.util.regex.Pattern;
 @Service
 @RequiredArgsConstructor
 public class UserService {
-    private final UserRepository userRepository;
-    private final Pattern PHONE_PATTERN = Pattern.compile(
-        "^((\\+7|7|8)[\\s-]?)?((\\(\\d{3}\\))|\\d{3})[\\s-]?\\d{3}[\\s-]?\\d{2}[\\s-]?\\d{2}$"
-    );
+  private final UserRepository userRepository;
+  private final Pattern PHONE_PATTERN = Pattern.compile(
+          "^((\\+7|7|8)[\\s-]?)?((\\(\\d{3}\\))|\\d{3})[\\s-]?\\d{3}[\\s-]?\\d{2}[\\s-]?\\d{2}$"
+  );
 
-    private boolean isValidPhoneNumber(String phoneNumber) {
-        if (phoneNumber == null) {
-            return false;
-        }
-        return PHONE_PATTERN.matcher(phoneNumber)
+  private boolean isValidPhoneNumber(String phoneNumber) {
+    if (phoneNumber == null) {
+      return false;
+    }
+    return PHONE_PATTERN.matcher(phoneNumber)
             .matches();
-    }
+  }
 
-    public User getUserById(Long userID) {
-        return userRepository.findUById(userID)
+  public User getUserById(Long userID) {
+    return userRepository.findUById(userID)
             .orElseThrow(() -> new UserNotFoundException("Пользователь с id " + userID + " не найден"));
-    }
+  }
 
-    public User getUserByUsername(String username) {
-        return userRepository.findUByUsername(username)
+  public User getUserByUsername(String username) {
+    return userRepository.findUByUsername(username)
             .orElseThrow(() -> new UserNotFoundException("Пользователь " + username + " не найден!"));
-    }
+  }
 
-    @Transactional
-    public User save(UserDTO userDTO) {
-        var user = getUserByUsername(userDTO.getUsername());
-        if (!Objects.equals(user.getUsername(), SecurityContextHolder.getContext()
+  @Transactional
+  public User save(UserDTO userDTO) {
+    var user = getUserByUsername(userDTO.getUsername());
+    if (!Objects.equals(user.getUsername(), SecurityContextHolder.getContext()
             .getAuthentication()
             .getName())) {
-            throw new NotEnoughEditingRightsException("Вы не этот пользователь");
-        }
-        if (!isValidPhoneNumber(userDTO.getPhone())) {
-            throw new WrongFormatException("Неправильный формат номера телефона");
-        }
-        user.setEmail(userDTO.getEmail());
-        user.setPhone(userDTO.getPhone());
-        userRepository.save(user);
-        return user;
+      throw new NotEnoughEditingRightsException("Вы не этот пользователь");
     }
+    if (!isValidPhoneNumber(userDTO.getPhone())) {
+      throw new WrongFormatException("Неправильный формат номера телефона");
+    }
+    user.setEmail(userDTO.getEmail());
+    user.setPhone(userDTO.getPhone());
+    userRepository.save(user);
+    return user;
+  }
 
-    public UserDTO dtoFromUser(User user) {
-        return UserDTO.builder()
+  public UserDTO dtoFromUser(User user) {
+    return UserDTO.builder()
             .id(user.getId())
             .username(user.getUsername())
             .email(user.getEmail())
             .phone(user.getPhone())
             .verified(user.getVerification() != null && user.getVerification()
-                .equals(Verification.VERIFIED))
+                    .equals(Verification.VERIFIED))
+            .role(user.getRole())
             .build();
-    }
+  }
 }
