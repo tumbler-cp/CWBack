@@ -5,6 +5,7 @@ import course.arahnik.dronenotificationlastiteration.security.service.AuthServic
 import course.arahnik.dronenotificationlastiteration.security.service.UserService;
 import course.arahnik.dronenotificationlastiteration.sender.dto.SenderDTO;
 import course.arahnik.dronenotificationlastiteration.sender.model.Sender;
+import course.arahnik.dronenotificationlastiteration.sender.repository.GoodRepository;
 import course.arahnik.dronenotificationlastiteration.sender.repository.SenderRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,6 +17,7 @@ public class SenderService {
     private final UserService userService;
     private final SenderRepository senderRepository;
     private final AuthService authService;
+    private final GoodRepository goodRepository;
 
     public SenderDTO dtoFromEntity(Sender sender) {
         return SenderDTO.builder()
@@ -32,6 +34,7 @@ public class SenderService {
         return user.getSender();
     }
 
+    @Transactional
     public Sender save(SenderDTO senderDTO) {
         var user = authService.getCurrentUser();
         if (user.getSender() == null) {

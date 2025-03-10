@@ -4,10 +4,9 @@ import course.arahnik.dronenotificationlastiteration.sender.dto.WareHousePositio
 import course.arahnik.dronenotificationlastiteration.sender.service.WareHouseService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/warehouse")
@@ -24,7 +23,12 @@ public class WareHouseController {
 
     @PostMapping("/change_position")
     public ResponseEntity<?> changePosition(@RequestBody WareHousePositionDTO dto) {
-        wareHouseService.changePosition(dto.getGood().getId(), dto.getQuantity());
+        wareHouseService.changePosition(dto.getId(), dto.getQuantity());
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/positions")
+    public List<WareHousePositionDTO> getPositions() {
+        return wareHouseService.getPositions();
     }
 }

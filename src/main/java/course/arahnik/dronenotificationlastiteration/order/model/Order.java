@@ -16,6 +16,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Table(name = "app_order")
 public class Order {
 
   @Id
@@ -24,6 +25,7 @@ public class Order {
 
   private LocalDateTime orderDate;
 
+  @Enumerated(EnumType.STRING)
   private OrderAcceptance acceptance;
 
   @ManyToOne

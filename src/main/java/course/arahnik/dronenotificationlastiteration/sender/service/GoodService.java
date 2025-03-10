@@ -2,6 +2,7 @@ package course.arahnik.dronenotificationlastiteration.sender.service;
 
 import course.arahnik.dronenotificationlastiteration.exception.NotEnoughEditingRightsException;
 import course.arahnik.dronenotificationlastiteration.exception.NotSenderException;
+import course.arahnik.dronenotificationlastiteration.security.repository.UserRepository;
 import course.arahnik.dronenotificationlastiteration.security.service.AuthService;
 import course.arahnik.dronenotificationlastiteration.sender.dto.GoodDTO;
 import course.arahnik.dronenotificationlastiteration.sender.model.Good;
@@ -17,6 +18,7 @@ import java.util.List;
 public class GoodService {
     private final GoodRepository goodRepository;
     private final AuthService authService;
+    private final UserRepository userRepository;
 
     public GoodDTO dtoFromEntity(Good good) {
         return GoodDTO.builder()

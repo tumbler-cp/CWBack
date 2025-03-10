@@ -10,6 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class WareHousePositionDTO {
+    private Long id;
     private GoodDTO good;
     private int quantity;
 }

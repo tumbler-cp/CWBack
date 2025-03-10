@@ -1,15 +1,27 @@
 package course.arahnik.dronenotificationlastiteration.order.service;
 
+import course.arahnik.dronenotificationlastiteration.customer.model.Customer;
+import course.arahnik.dronenotificationlastiteration.customer.repository.CustomerRepository;
+import course.arahnik.dronenotificationlastiteration.order.dto.CreateOrderRequest;
 import course.arahnik.dronenotificationlastiteration.order.dto.OrderDTO;
 import course.arahnik.dronenotificationlastiteration.order.model.Order;
+import course.arahnik.dronenotificationlastiteration.order.model.OrderPosition;
+import course.arahnik.dronenotificationlastiteration.order.repository.OrderPositionRepository;
 import course.arahnik.dronenotificationlastiteration.order.repository.OrderRepository;
 import course.arahnik.dronenotificationlastiteration.security.service.AuthService;
 import course.arahnik.dronenotificationlastiteration.security.service.UserService;
+import course.arahnik.dronenotificationlastiteration.sender.model.Good;
+import course.arahnik.dronenotificationlastiteration.sender.model.Sender;
+import course.arahnik.dronenotificationlastiteration.sender.repository.GoodRepository;
+import course.arahnik.dronenotificationlastiteration.sender.repository.SenderRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -17,20 +29,75 @@ public class OrderService {
   private final UserService userService;
   private final AuthService authService;
   private final OrderRepository orderRepository;
+  private final SenderRepository senderRepository;
+  private final CustomerRepository customerRepository;
+  private final GoodRepository goodRepository;
+  private final OrderPositionRepository orderPositionRepository;
+
+  public OrderDTO dtoFromEntity(Order order) {
+    return OrderDTO.builder()
+            .id(order.getId())
+            .orderDate(order.getOrderDate())
+            .acceptance(order.getAcceptance())
+            .sender(order.getSender()
+                    .getShopName())
+            .destination(order.getCustomer()
+                    .getAddress())
+            .build();
+  }
 
   public List<OrderDTO> getSenderOrders() {
     var user = authService.getCurrentUser();
     var orders = orderRepository.findAllBySender(user.getSender());
     List<OrderDTO> ret = new ArrayList<>();
     for (var o : orders) {
-      ret.add(OrderDTO
-              .builder().id(o.getId())
-              .orderDate(o.getOrderDate())
-              .acceptance(o.getAcceptance())
-              .sender(o.getSender().getShopName())
-              .destination(o.getCustomer().getAddress())
-              .build());
+      ret.add(dtoFromEntity(o));
     }
     return ret;
+  }
+
+  public List<OrderDTO> getCustomerOrders() {
+    var user = authService.getCurrentUser();
+    List<Order> orders = orderRepository.findAllByCustomer(user.getCustomer());
+    List<OrderDTO> ret = new ArrayList<>();
+    for (var o : orders) {
+      ret.add(dtoFromEntity(o));
+    }
+    return ret;
+  }
+
+  @Transactional
+  public OrderDTO createOrder(CreateOrderRequest request) {
+    Customer customer = customerRepository.findById(request.getCustomerId())
+            .orElseThrow(() -> new RuntimeException("Такого получателя нет"));
+    Sender sender = goodRepository.findById(request.getPositions()
+                    .get(0)
+                    .getGoodID())
+            .orElseThrow(() -> new RuntimeException("BAD REQUEST"))
+            .getSender();
+
+    Order order = Order.builder()
+            .orderDate(LocalDateTime.now())
+            .sender(sender)
+            .customer(customer)
+            .build();
+    order = orderRepository.save(order);
+    final Order o = order;
+    List<OrderPosition> positions = request.getPositions()
+            .stream()
+            .map(positionDTO -> {
+              Good good = goodRepository.findById(positionDTO.getGoodID())
+                      .orElseThrow(() -> new RuntimeException("Такой товар не найден"));
+              return OrderPosition.builder()
+                      .order(o)
+                      .good(good)
+                      .quantity(positionDTO.getQuantity())
+                      .build();
+
+            })
+            .toList();
+    orderPositionRepository.saveAll(positions);
+
+    return dtoFromEntity(o);
   }
 }
