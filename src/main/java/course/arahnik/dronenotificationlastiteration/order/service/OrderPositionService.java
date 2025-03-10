@@ -18,10 +18,9 @@ public class OrderPositionService {
 
   @Transactional
   public void createPosition(Long goodID, Long orderID, int quantity) {
-    var order = orderRepository.findById(orderID)
-            .orElseThrow(
-                    () -> new RuntimeException("Такой заказ не найден")
-            );
+    var order = orderRepository.findById(orderID).orElseThrow(
+            () -> new RuntimeException("Order not found")
+    );
     var good = goodRepository.findById(goodID)
             .orElseThrow(
                     () -> new RuntimeException("Такого товара не существует")

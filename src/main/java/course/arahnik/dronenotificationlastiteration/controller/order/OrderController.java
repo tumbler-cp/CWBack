@@ -25,14 +25,16 @@ public class OrderController {
 
   @PostMapping("/accept")
   public ResponseEntity<?> acceptOrder(@RequestBody OrderDTO orderDTO) {
-    orderService.acceptOrder(orderRepository.findById(orderDTO.getId()));
+    orderService.acceptOrder(orderRepository.findById(orderDTO.getId())
+            .orElseThrow(() -> new RuntimeException("Order not found")));
     return ResponseEntity.ok()
             .build();
   }
 
   @PostMapping("/reject")
   public ResponseEntity<?> rejectOrder(@RequestBody OrderDTO orderDTO) {
-    orderService.rejectOrder(orderRepository.findById(orderDTO.getId()));
+    orderService.rejectOrder(orderRepository.findById(orderDTO.getId())
+            .orElseThrow(() -> new RuntimeException("Order not found")));
     return ResponseEntity.ok()
             .build();
   }
