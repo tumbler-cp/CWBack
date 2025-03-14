@@ -27,7 +27,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -74,6 +76,10 @@ public class OrderService {
     }
     var status = orderStatusRepository.findByOrder(order)
             .orElseThrow(RuntimeException::new);
+    Instant i = status.getStartTime().atZone(ZoneId.systemDefault()).toInstant();
+//    if (System.currentTimeMillis() - i.toEpochMilli() < status.getEstimatedTimeLeft() * 3600000) {
+//      return;
+//    }
     order.setStage(OrderStage.COMPLETED);
     var o = orderRepository.save(order);
     dtoFromEntity(o);
